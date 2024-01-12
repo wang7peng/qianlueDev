@@ -5,8 +5,8 @@ set -u
 # ----- ----- ----- ----- ----- -----
 #  platform: centos7 (with base tools)
 #  Desc: 安装完 freepbx.iso 后增加设置
-#        root运行
-#  Date: 2023.12.28
+#
+#  Note: root运行
 # ----- ----- ----- ----- ----- -----
 
 replace_gcc() {
@@ -105,19 +105,27 @@ install_python() {
   cd $pos
 }
 
+# install or update go (v1.21+)
 install_go() {
   go version 2> /dev/null
-  if [ $? -ne 127 ]; then return 0; fi
-
-  cd /opt
-  local pkgName=go1.21.5.linux-amd64.tar.gz
-  if [ ! -f $pkgName ]; then
-    wget --no-verbose https://go.dev/dl/$pkgName
+  if [ $? -ne 127 ]; then 
+    if [[ $1 == `go env GOVERSION` ]]; then 
+      return 0; # don't reinstall when their version are consistent
+    fi
   fi
-  rm -rf /usr/local/etc/go
-  tar -C /usr/local/etc -xzf go1.21* 
+  # e.g.  go1.22.3.linux-amd64.tar.gz
+  local pkgName=$1.linux-amd64.tar.gz
 
-  echo 'export PATH=$PATH:/usr/local/etc/go/bin' >> /etc/profile
+  if [ ! -f /opt/$pkgName ]; then sudo wget -P /opt  \
+    --no-verbose https://go.dev/dl/$pkgName
+  fi
+  sudo rm -rf /usr/local/etc/go
+  sudo tar -C /usr/local/etc -xzf /opt/$pkgName
+  
+  cat /etc/profile | grep -i go/bin
+  if [ $? -eq 1 ]; then
+    echo 'export PATH=$PATH:/usr/local/etc/go/bin' >> /etc/profile
+  fi
   echo "remember source /etc/profile, then run this script again!"
   exit
 }
@@ -138,7 +146,7 @@ git config --global core.autocrlf input
 
 install_python
 
-install_go
+install_go "go1.21.6"
 
 go env -w GOPRIVATE=https://go.pfgit.cn
 go env -w GOPROXY=https://proxy.golang.com.cn,direct
