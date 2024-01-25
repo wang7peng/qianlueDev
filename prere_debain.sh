@@ -1,0 +1,208 @@
+#!/bin/bash
+set -u
+
+# ----- ----- ----- ----- -----
+# Env: debain 12
+# Desc: asterisk 20.5+
+# 
+# Note: user asterisk
+#       pass like2024
+#
+# Date: 2024.1.25
+# ----- ----- ----- ----- -----
+
+check_env_db() {
+  sudo apt install -y unixodbc unixodbc-dev unixodbc-* # 2.3.11
+  sudo apt install -y libltdl-dev
+  sudo apt install -y odbcinst
+
+  sudo apt install -y libmariadb-dev
+
+  # libmyodbc8a.so will be put in /usr/lib/x86_64-linux-gnu/odbc/
+  sudo apt install -y mysql-connector-odbc
+
+  # add sql source
+  local pkgdeb="http://repo.mysql.com/mysql-apt-config_0.8.29-1_all.deb"
+  if [ ! -f /opt/$pkgdeb ]; then
+    sudo wget -P /opt $pkgdeb
+    sudo dpkg -i /opt/mysql-apt-config*
+    sudo apt update
+  fi
+  sudo apt install -y mysql-server
+  apt policy mysql-server
+
+  # create db asterisk
+  sudo mysql -e "create user 'asterisk'@'%' identified by 'like2024';"
+  sudo mysql -e "create database asterisk;"
+  sudo mysql -e "GRANT ALL PRIVILEGES ON asterisk.* TO 'asterisk'@'%';"
+  sudo mysql -e "flush privileges;"
+
+  # https://dlm.mariadb.com/3680379/Connectors/odbc/connector-odbc-3.1.20/mariadb-connector-odbc-3.1.20-debian-bookworm-amd64.tar.gz
+  sudo wget -P /opt \
+    https://downloads.mariadb.com/Connectors/odbc/connector-odbc-3.2.1/mariadb-connector-odbc-3.2.1-debian-bookworm-amd64.tar.gz
+
+  tar -xvzf mariadb-connector-odbc-*.tar.gz -C /usr.local/src
+  cd /usr/local/src/mariadb-connector-odbc-*
+
+  sudo install lib/mariadb/libmaodbc.so /usr/lib/
+  sudo install -d /usr/lib/mariadb/
+  sudo install -d /usr/lib/mariadb/plugin/
+  sudo install lib/mariadb/plugin/* /usr/lib/mariadb/plugin/
+
+  # clean and write config k=v into /etc/odbc.ini
+  sudo echo "" > /etc/odbc.ini
+  sudo echo "[asterisk-connector]" >> /etc/odbc.ini 
+  sudo echo "Description = MySQL connection to 'asterisk' database" >> /etc/odbc.ini 
+  sudo echo "Driver = MariaDB" >> /etc/odbc.ini 
+  sudo echo "Database = asterisk" >> /etc/odbc.ini 
+  sudo echo "Server = localhost" >> /etc/odbc.ini 
+  sudo echo "Port = 3306" >> /etc/odbc.ini 
+  sudo echo "Socket = /run/mysqld/mysqld.sock" >> /etc/odbc.ini 
+
+  # write into /etc/odbcinst.ini
+  odbcinst -q -d
+}
+
+# default:
+# python with v3.11 has existed
+check_env() {
+  sudo apt install -y subversion \
+    vim curl wget 
+
+  # default add gcc(v12.2) 
+  sudo apt install -y build-essential
+
+  install_git
+  check_env_db
+
+  sudo apt install -y \
+    libnewt-dev libssl-dev libncurses5-dev libsqlite3-dev \
+    libjansson-dev libxml2-dev uuid-dev default-libmysqlclient-dev
+}
+
+download_asterisk() {
+  cd /opt
+  local pkg="asterisk-20.5.2.tar.gz"
+  sudo curl -O http://downloads.asterisk.org/pub/telephony/asterisk/$pkg
+  ls -al -hog --color=auto # 27M
+  sudo tar xvf asterisk-20* -C /usr/local/src
+  cd /usr/local/src/${pkg%.tar*}
+
+  sudo contrib/scripts/get_mp3_source.sh
+  sudo contrib/scripts/install_prereq install
+}
+
+add_user() {
+  local userName="asterisk"
+  userName=$1
+  sudo groupadd $userName
+  sudo useradd -r -d /var/lib/asterisk -g asterisk $userName
+
+  sudo usermod -aG audio,dialout asterisk
+  sudo chown -R asterisk:$userName /etc/asterisk
+  sudo chown -R asterisk:$userName /var/{lib,log,spool}/asterisk
+  sudo chown -R asterisk:$userName /usr/lib/asterisk
+}
+
+install_git() {
+  sudo apt install -y git #default v2.39
+
+  git config --global user.name "wangpeng"
+  git config --global user.email "18795975517@163.com"
+  git config --global http.sslVerify "false"
+  git config --global core.autocrlf input
+}
+
+# install or update go (v1.21+)
+install_go() {
+  go version 2> /dev/null
+  if [ $? -ne 127 ]; then 
+    if [[ $1 == `go env GOVERSION` ]]; then 
+      return 0; # don't reinstall when their version are consistent
+    fi
+  fi
+  # e.g.  go1.22.3.linux-amd64.tar.gz
+  local pkgName=$1.linux-amd64.tar.gz
+
+  if [ ! -f /opt/$pkgName ]; then sudo wget -P /opt  \
+    --no-verbose https://go.dev/dl/$pkgName
+  fi
+  sudo rm -rf /usr/local/etc/go
+  sudo tar  -xzf /opt/$pkgName -C /usr/local/etc
+  
+  cat /etc/profile | grep -i go/bin
+  if [ $? -eq 1 ]; then
+    sudo echo "export PATH=$PATH:/usr/local/etc/go/bin" >> /etc/profile
+  fi
+  echo "remember source /etc/profile, then run this script again!"
+  exit
+}
+
+# 26 tables will generate in mysql
+generate_tables() {
+  sudo apt install -y alembic
+  # only this can work, not pip install
+  sudo apt install -y python3-mysqldb
+
+  cd /usr/local/src/asterisk-2*/contrib/ast-db-manage/
+  sudo cp config.ini.sample config.ini
+  sudo sed -i '21s/user/asterisk/g'  ../ast-db-manage/config.ini
+  sudo sed -i '21s/pass/like2024/g'  ../ast-db-manage/config.ini
+
+  alembic -c ./config.ini upgrade head
+}
+
+# ----- ----- main ----- -----
+
+check_env
+
+asterisk -V
+if [ $? -ne 127 ]; then
+
+  install_go "go1.21.6"
+  go env -w GOPRIVATE=https://go.pfgit.cn
+  go env -w GOPROXY=https://proxy.golang.com.cn,direct
+  go env -w GO111MODULE=on
+  go env -w GOSUMDB=off
+
+  exit
+fi
+
+download_asterisk
+
+cd /usr/local/src/asterisk*
+sudo ./configure
+
+sudo make menuselect
+
+# compile
+op=0
+read -p "make? [Y/n]" op
+case $op in
+  1 | Y | y) sudo make; sudo make install;
+    ;;
+  *) exit
+esac
+
+sudo make progdocs
+sudo make samples
+sudo make config
+sudo ldconfig
+
+id asterisk
+if [ $? -eq 1 ]; then
+  add_user "asterisk"
+fi
+
+sudo sed -i '8s/.*/AST_USER="asterisk"/' /etc/default/asterisk 
+sudo sed -i '9s/.*/AST_GROUP="asterisk"/' /etc/default/asterisk 
+sudo sed -i '75s/.*/runuser = asterisk/' /etc/asterisk/asterisk.conf 
+sudo sed -i '76s/.*/rungroup = asterisk/' /etc/asterisk/asterisk.conf
+
+# create tables in db
+generate_tables
+
+sudo systemctl restart asterisk
+sudo systemctl enable asterisk
+
+sudo asterisk -V
