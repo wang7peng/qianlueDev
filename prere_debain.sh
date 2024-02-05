@@ -11,6 +11,35 @@ set -u
 # Date: 2024.1.25
 # ----- ----- ----- ----- -----
 
+# install mariadb connector
+install_connector() {
+  if [[ $1 != "mariadb" ]; then return 0
+  fi
+
+  local ver="3.2.1"
+
+  local pkgtar="mariadb-connector-odbc-${ver}-debian-bookworm-amd64.tar.gz"
+  if [[ `lsb_release -i --short` == "ubuntu" ]]; then 
+    if [[ `lsb_release -c --short` == "jammy" ]]; then
+      pkgtar="mariadb-connector-odbc-3.2.1-ubuntu-jammy-amd64.tar.gz" # v22.04
+    else
+      pkgtar="mariadb-connector-odbc-3.2.1-ubuntu-lunar-amd64.tar.gz"
+    fi
+  fi
+
+  if [ ! -f /opt/$pkgtar ]; then
+    sudo wget -P /opt \
+      https://downloads.mariadb.com/Connectors/odbc/connector-odbc-${ver}/$pkgtar
+    tar -xvzf mariadb-connector-odbc-*.tar.gz -C /usr.local/src
+  fi
+  cd /usr/local/src/mariadb-connector-odbc-*
+
+  sudo install lib/mariadb/libmaodbc.so /usr/lib/
+  sudo install -d /usr/lib/mariadb/
+  sudo install -d /usr/lib/mariadb/plugin/
+  sudo install lib/mariadb/plugin/* /usr/lib/mariadb/plugin/
+}
+
 check_env_db() {
   sudo apt install -y unixodbc unixodbc-dev unixodbc-* # 2.3.11
   sudo apt install -y libltdl-dev
@@ -22,9 +51,10 @@ check_env_db() {
   sudo apt install -y mysql-connector-odbc
 
   # add sql source
-  local pkgdeb="http://repo.mysql.com/mysql-apt-config_0.8.29-1_all.deb"
+  local pkgdeb="mysql-apt-config_0.8.29-1_all.deb"
   if [ ! -f /opt/$pkgdeb ]; then
-    sudo wget -P /opt $pkgdeb
+    sudo wget -P /opt \
+      http://repo.mysql.com/$pkgdeb
     sudo dpkg -i /opt/mysql-apt-config*
     sudo apt update
   fi
@@ -37,17 +67,7 @@ check_env_db() {
   sudo mysql -e "GRANT ALL PRIVILEGES ON asterisk.* TO 'asterisk'@'%';"
   sudo mysql -e "flush privileges;"
 
-  # https://dlm.mariadb.com/3680379/Connectors/odbc/connector-odbc-3.1.20/mariadb-connector-odbc-3.1.20-debian-bookworm-amd64.tar.gz
-  sudo wget -P /opt \
-    https://downloads.mariadb.com/Connectors/odbc/connector-odbc-3.2.1/mariadb-connector-odbc-3.2.1-debian-bookworm-amd64.tar.gz
-
-  tar -xvzf mariadb-connector-odbc-*.tar.gz -C /usr.local/src
-  cd /usr/local/src/mariadb-connector-odbc-*
-
-  sudo install lib/mariadb/libmaodbc.so /usr/lib/
-  sudo install -d /usr/lib/mariadb/
-  sudo install -d /usr/lib/mariadb/plugin/
-  sudo install lib/mariadb/plugin/* /usr/lib/mariadb/plugin/
+  install_connector "mariadb"
 
   # clean and write config k=v into /etc/odbc.ini
   sudo echo "" > /etc/odbc.ini
