@@ -80,12 +80,22 @@ check_env() {
     libjansson-dev libxml2-dev uuid-dev default-libmysqlclient-dev
 }
 
+# 3 latest versions exist at the same time in page 
 download_asterisk() {
+  local ver="21.1.0"
+  if [ $# -eq 1 ]; then ver=$1; 
+  fi
+  local pkg="asterisk-${ver}.tar.gz"
+
+  # curl can not specify dir
   cd /opt
-  local pkg="asterisk-20.5.2.tar.gz"
-  sudo curl -O http://downloads.asterisk.org/pub/telephony/asterisk/$pkg
+  sudo curl -# -C - -O http://downloads.asterisk.org/pub/telephony/asterisk/$pkg
   ls -al -hog --color=auto # 27M
   sudo tar xvf asterisk-20* -C /usr/local/src
+  if [ $? -eq 1 ]; then 
+    echo "get source package failure, need download again!"; exit
+  fi
+
   cd /usr/local/src/${pkg%.tar*}
 
   sudo contrib/scripts/get_mp3_source.sh
@@ -168,7 +178,7 @@ if [ $? -ne 127 ]; then
   exit
 fi
 
-download_asterisk
+download_asterisk "20.6.0"
 
 cd /usr/local/src/asterisk*
 sudo ./configure
