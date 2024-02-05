@@ -13,7 +13,7 @@ set -u
 
 # install mariadb connector
 install_connector() {
-  if [[ $1 != "mariadb" ]; then return 0
+  if [[ $1 != "mariadb" ]]; then return 0
   fi
 
   local ver="3.2.1"
@@ -38,6 +38,29 @@ install_connector() {
   sudo install -d /usr/lib/mariadb/
   sudo install -d /usr/lib/mariadb/plugin/
   sudo install lib/mariadb/plugin/* /usr/lib/mariadb/plugin/
+}
+
+add_config() {
+  if [[ `whoami` == "root" ]]; then
+    sudo echo "" > /etc/odbc.ini
+    sudo echo "[asterisk-connector]" >> /etc/odbc.ini 
+    sudo echo "Description = MySQL connection to 'asterisk' database" >> /etc/odbc.ini 
+    sudo echo "Driver = MariaDB" >> /etc/odbc.ini 
+    sudo echo "Database = asterisk" >> /etc/odbc.ini 
+    sudo echo "Server = localhost" >> /etc/odbc.ini 
+    sudo echo "Port = 3306" >> /etc/odbc.ini 
+    sudo echo "Socket = /run/mysqld/mysqld.sock" >> /etc/odbc.ini 
+    return 0
+  fi
+
+  # sudo echo "xxx" >> /x/file have not effect when bash x.sh without sudo
+  echo "[asterisk-connector]" | sudo tee -a /etc/odbc.ini 
+  echo "Description = MySQL connection to 'asterisk' database" | tee -a /etc/odbc.ini 
+  echo "Driver = MariaDB" | tee -a /etc/odbc.ini 
+  echo "Database = asterisk" | tee -a /etc/odbc.ini 
+  echo "Server = localhost" | tee -a /etc/odbc.ini 
+  echo "Port = 3306" | tee -a /etc/odbc.ini 
+  echo "Socket = /run/mysqld/mysqld.sock" | tee -a /etc/odbc.ini 
 }
 
 check_env_db() {
@@ -70,14 +93,8 @@ check_env_db() {
   install_connector "mariadb"
 
   # clean and write config k=v into /etc/odbc.ini
-  sudo echo "" > /etc/odbc.ini
-  sudo echo "[asterisk-connector]" >> /etc/odbc.ini 
-  sudo echo "Description = MySQL connection to 'asterisk' database" >> /etc/odbc.ini 
-  sudo echo "Driver = MariaDB" >> /etc/odbc.ini 
-  sudo echo "Database = asterisk" >> /etc/odbc.ini 
-  sudo echo "Server = localhost" >> /etc/odbc.ini 
-  sudo echo "Port = 3306" >> /etc/odbc.ini 
-  sudo echo "Socket = /run/mysqld/mysqld.sock" >> /etc/odbc.ini 
+  if [ ! -f /etc/odbc.ini ]; then add_config
+  fi
 
   # write into /etc/odbcinst.ini
   odbcinst -q -d
@@ -162,7 +179,7 @@ install_go() {
   
   cat /etc/profile | grep -i go/bin
   if [ $? -eq 1 ]; then
-    sudo echo "export PATH=$PATH:/usr/local/etc/go/bin" >> /etc/profile
+    echo "export PATH=\$PATH:/usr/local/etc/go/bin" | sudo tee -a /etc/profile
   fi
   echo "remember source /etc/profile, then run this script again!"
   exit

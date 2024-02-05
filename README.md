@@ -43,4 +43,6 @@ sudo apt install -y libgl-dev   # -lGL
 
 - 查看版本信息，有的默认显示一大堆的话，可以用 `head -n` 提取某一行
 
+- `sudo echo "xxx" >> /x/file` 只在 root 用户或者 `sudo bash name.sh` 有用，不加 `sudo` 直接按普通用户 `bash name.sh` 运行就不行，要么 `sh -c` 将整体当作一个字符串命令执行；要么改成 `echo "xxx" | sudo tee -a /x/file`
+
 - TODO
