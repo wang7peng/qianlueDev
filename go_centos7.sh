@@ -7,7 +7,7 @@ go='1.22.0'
 
 # ----- ----- -----  ----- ----- -----
 
-# lrzsz wget tree ... 
+# wget tree ... 
 function check_tools {
   wget --version | 2> /dev/null
   if [ $? -eq 127 ]; then sudo yum install -y wget
@@ -17,7 +17,9 @@ function check_tools {
   if [ $? -eq 127 ]; then sudo yum install -y tree
   fi
 
-  sudo yum install -y vim lrzsz
+  vim --version | 2> /dev/null
+  if [ $? -eq 127 ]; then sudo yum install -y vim
+  fi
 }
 
 # download tar
@@ -29,7 +31,7 @@ function download_go {
   fi
   
   local pkg=${ver}.src.tar.gz
-  if [[ `arch` == 'x86_64' ]]; then pkg=$ver.linux-amd64.tar.gz
+  if [[ `arch` == 'x86_64' ]]; then pkg=${ver}.linux-amd64.tar.gz
   fi
 
   local url=https://go.dev/dl/$pkg
@@ -55,7 +57,7 @@ function tar2pos {
   fi 
 
   sudo rm -rf $pos/go;
-  sudo tar -xzf /opt/$tarPkg -C $pos
+  sudo tar -xzf /opt/go$go.*.tar.gz -C $pos
 }
 
 # add a item value to PATH
@@ -70,8 +72,11 @@ function addenv2path {
   fi
   echo $PATH | tr ':' '\n'
 
-  # source /etc/profile
-  echo "remember source /etc/profile, then run this script again!"
+  if [ $(echo $PATH | tr ':' '\n' | grep 'go/bin' | wc -l) -eq 0 ]; then
+    # source /etc/profile
+    echo "remember source /etc/profile, then run this script again!"
+    exit 
+  fi
 }
 
 install_go() {
