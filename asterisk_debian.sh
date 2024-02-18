@@ -276,7 +276,7 @@ sudo asterisk -rx 'core show version'
 
 # ----- ----- ----- ----- ----- -----
 # Desc: install Asterisk from source
-# Plat: Debain 12
+# Plat: Debian 12
 #
 # Note: put packages in /opt
 #       put codes in /usr/local/src/
