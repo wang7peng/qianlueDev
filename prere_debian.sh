@@ -55,12 +55,12 @@ add_config() {
 
   # sudo echo "xxx" >> /x/file have not effect when bash x.sh without sudo
   echo "[asterisk-connector]" | sudo tee -a /etc/odbc.ini 
-  echo "Description = MySQL connection to 'asterisk' database" | tee -a /etc/odbc.ini 
-  echo "Driver = MariaDB" | tee -a /etc/odbc.ini 
-  echo "Database = asterisk" | tee -a /etc/odbc.ini 
-  echo "Server = localhost" | tee -a /etc/odbc.ini 
-  echo "Port = 3306" | tee -a /etc/odbc.ini 
-  echo "Socket = /run/mysqld/mysqld.sock" | tee -a /etc/odbc.ini 
+  echo "Description = MySQL connection to 'asterisk' database" | sudo tee -a /etc/odbc.ini 
+  echo "Driver = MariaDB" | sudo tee -a /etc/odbc.ini 
+  echo "Database = asterisk" | sudo tee -a /etc/odbc.ini 
+  echo "Server = localhost" | sudo tee -a /etc/odbc.ini 
+  echo "Port = 3306" | sudo tee -a /etc/odbc.ini 
+  echo "Socket = /run/mysqld/mysqld.sock" | sudo tee -a /etc/odbc.ini 
 }
 
 # create db asterisk
@@ -117,7 +117,6 @@ check_env() {
   sudo apt install -y build-essential
 
   install_git
-  check_env_db
 
   sudo apt install -y \
     libnewt-dev libssl-dev libncurses5-dev libsqlite3-dev \
@@ -235,8 +234,9 @@ generate_tables() {
 # ----- ----- main ----- -----
 
 check_env
+check_env_db
 
-asterisk -V
+sudo asterisk -V
 if [ $? -ne 127 ]; then
 
   install_go "go1.22.0"
