@@ -33,7 +33,8 @@ function addsource_db {
 
 install_mysql8() {
   sudo mysql --version
-  if [ $? -ne 127 ]; then return 0
+  # 命令本身不存在是127, 带 sudo 时是 1
+  if [ $? -ne 1 ]; then return 0
   fi
 
   addsource_db
