@@ -8,7 +8,7 @@ set -u
 # Note: user asterisk
 #       pass like2024
 #
-# Date: 2024.1.25
+# Date: 2024.2.18
 # ----- ----- ----- ----- -----
 
 # install mariadb connector
@@ -30,7 +30,7 @@ install_connector() {
   if [ ! -f /opt/$pkgtar ]; then
     sudo wget -P /opt \
       https://downloads.mariadb.com/Connectors/odbc/connector-odbc-${ver}/$pkgtar
-    tar -xvzf mariadb-connector-odbc-*.tar.gz -C /usr.local/src
+    sudo tar -xzf /opt/mariadb-connector-odbc-*.tar.gz -C /usr/local/src
   fi
   cd /usr/local/src/mariadb-connector-odbc-*
 
