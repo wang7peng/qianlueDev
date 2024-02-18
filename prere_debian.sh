@@ -146,6 +146,32 @@ download_asterisk() {
   sudo contrib/scripts/install_prereq install
 }
 
+build_asterisk() {
+  cd /usr/local/src/asterisk-*
+  sudo ./configure
+
+  sudo make menuselect
+
+  local op=0
+  read -p "make? (default not) [Y/n]" op
+  case $op in
+    1 | Y | y) sudo make; sudo make install;
+      sudo make samples
+      sudo make config
+      sudo make install-logrotate ;;
+    *) exit
+  esac
+
+  read -p "need C-API? (default not) [Y/n]" op
+  case $op in
+    1 | Y | y) 
+      sudo make progdocs ;;
+    *)
+  esac
+
+  sudo ldconfig
+}
+
 add_user() {
   local userName="asterisk"
   userName=$1
@@ -213,7 +239,7 @@ check_env
 asterisk -V
 if [ $? -ne 127 ]; then
 
-  install_go "go1.21.6"
+  install_go "go1.22.0"
   go env -w GOPRIVATE=https://go.pfgit.cn
   go env -w GOPROXY=https://proxy.golang.com.cn,direct
   go env -w GO111MODULE=on
@@ -223,25 +249,7 @@ if [ $? -ne 127 ]; then
 fi
 
 download_asterisk "20.6.0"
-
-cd /usr/local/src/asterisk*
-sudo ./configure
-
-sudo make menuselect
-
-# compile
-op=0
-read -p "make? [Y/n]" op
-case $op in
-  1 | Y | y) sudo make; sudo make install;
-    ;;
-  *) exit
-esac
-
-sudo make progdocs
-sudo make samples
-sudo make config
-sudo ldconfig
+build_asterisk
 
 id asterisk
 if [ $? -eq 1 ]; then
