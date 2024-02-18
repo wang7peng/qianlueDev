@@ -72,6 +72,24 @@ create_dbuser() {
   sudo mysql -e "flush privileges;"
 }
 
+install_mysql8() {
+  mysql --version
+  if [ $? -ne 127 ]; then return 0
+  fi 
+
+  # add sql source
+  local pkg="mysql-apt-config_0.8.29-1_all.deb"
+  if [ ! -f /opt/$pkg ]; then
+    sudo wget -P /opt http://repo.mysql.com/$pkg
+    sudo dpkg -i /opt/$pkg
+    sudo apt update
+  fi
+
+  sudo apt install -y mysql-server
+  sudo systemctl enable mysql
+  create_dbuser 'asterisk'
+}
+
 check_env_db() {
   sudo apt install -y unixodbc unixodbc-dev unixodbc-* # 2.3.11
   sudo apt install -y libltdl-dev
@@ -82,29 +100,23 @@ check_env_db() {
   # libmyodbc8a.so will be put in /usr/lib/x86_64-linux-gnu/odbc/
   sudo apt install -y mysql-connector-odbc
 
-  # add sql source
-  local pkgdeb="mysql-apt-config_0.8.29-1_all.deb"
-  if [ ! -f /opt/$pkgdeb ]; then
-    sudo wget -P /opt \
-      http://repo.mysql.com/$pkgdeb
-    sudo dpkg -i /opt/mysql-apt-config*
-    sudo apt update
-  fi
-
-  mysql --version
-  if [ $? -eq 127 ]; then sudo apt install -y mysql-server
-    sudo systemctl enable mysql
-    create_dbuser 'asterisk'
-  fi
-
+  install_mysql8
   install_connector "mariadb"
 
   # clean and write config k=v into /etc/odbc.ini
   if [ ! -f /etc/odbc.ini ]; then add_config
   fi
 
-  # write into /etc/odbcinst.ini
-  odbcinst -q -d
+  #local line1=`cat /etc/odbcinst.ini | head --lines=1`
+  local line1=`odbcinst -q -d | head --lines=1`
+  if [[ $line1 != "[MariaDB]" ]]; then
+    # write into /etc/odbcinst.ini
+    sudo sed -i '1i [MariaDB]'  /etc/odbcinst.ini
+    sudo sed -i '2i Description=ODBC for MariaDB' /etc/odbcinst.ini
+    sudo sed -i '3i Driver=/usr/lib/libmaodbc.so' /etc/odbcinst.ini
+    sudo sed -i '4i UsageCount=1' /etc/odbcinst.ini
+    sudo sed -i '5i  ' /etc/odbcinst.ini
+  fi
 }
 
 # default:
