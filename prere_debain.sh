@@ -63,6 +63,15 @@ add_config() {
   echo "Socket = /run/mysqld/mysqld.sock" | tee -a /etc/odbc.ini 
 }
 
+# create db asterisk
+create_dbuser() {
+  sudo mysql -e "create user 'asterisk'@'%' identified by 'like2024';"
+  sudo mysql -e "create database IF NOT EXISTS asterisk;"
+  sudo mysql -e "GRANT ALL PRIVILEGES ON asterisk.* TO 'asterisk'@'%';"
+
+  sudo mysql -e "flush privileges;"
+}
+
 check_env_db() {
   sudo apt install -y unixodbc unixodbc-dev unixodbc-* # 2.3.11
   sudo apt install -y libltdl-dev
@@ -81,14 +90,12 @@ check_env_db() {
     sudo dpkg -i /opt/mysql-apt-config*
     sudo apt update
   fi
-  sudo apt install -y mysql-server
-  apt policy mysql-server
 
-  # create db asterisk
-  sudo mysql -e "create user 'asterisk'@'%' identified by 'like2024';"
-  sudo mysql -e "create database asterisk;"
-  sudo mysql -e "GRANT ALL PRIVILEGES ON asterisk.* TO 'asterisk'@'%';"
-  sudo mysql -e "flush privileges;"
+  mysql --version
+  if [ $? -eq 127 ]; then sudo apt install -y mysql-server
+    sudo systemctl enable mysql
+    create_dbuser 'asterisk'
+  fi
 
   install_connector "mariadb"
 
