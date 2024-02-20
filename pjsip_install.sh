@@ -2,6 +2,14 @@
 
 set -u
 
+#  platform: ubuntu22
+
+# ----- ----- version conf ----- -----
+pjproject='2.14'
+
+pkg=pjproject-${pjproject}.tar.gz # 9.8M
+# ----- ----- -----  ----- ----- -----
+
 # install latest gnu make
 install_make() {
   if [ ! -f make.tar.gz ]; then
@@ -56,10 +64,30 @@ install_opus() {
   cd ..
 }
 
+# get pkg of pjsip
+#
+download_pj() {
+  local pkg_tag=${pjproject}.tar.gz
+  local url=https://github.com/pjsip/pjproject/archive/refs/tags/$pkg_tag
+
+  # wget -nc 已存在文件不下载, 只要包名中含有对应版本号, 不用担心新旧包重名
+  sudo wget --no-clobber --no-verbose -O /opt/$pkg $url
+
+  ls -h -og --color=auto /opt
+}
+
+build_pj() {
+  cd /usr/local/src/pjproject-${pjproject}
+
+  sudo ./configure --prefix=/usr/local/etc/pjsip
+
+  make dep
+  make
+  sudo make install
+}
+
 # ----- ----- main ----- -----
 check_env
-
-dirSrc="pjproject-2.14"
 
 op=0
 read -p "add additional lib opus? [Y/n] " op
@@ -68,20 +96,13 @@ case $op in
   *)
 esac 
 
-# get pkg of pjsip
-if [ ! -f ${dirSrc}.tar.gz ]; then
-  wget --no-verbose --tries=2	-O pjproject-2.14.tar.gz \
-    https://github.com/pjsip/pjproject/archive/refs/tags/2.14.tar.gz # 9.8M
-else
-  echo "pkg pjsip have download!"
+download_pj
+
+cd /usr/local/src
+if [ ! -d pjproject-${pjproject} ]; then
+  sudo tar -xzf /opt/$pkg -C /usr/local/src
 fi
 
-tar -zxf ${dirSrc}.tar.gz
-
-cd $dirSrc
-./configure --prefix=/usr/local/pjsip
-make
-sudo make install
-cd ..
+build_pj
 
 echo "install ok, clear yourself"
