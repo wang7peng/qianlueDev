@@ -6,8 +6,10 @@ set -u
 
 # ----- ----- version conf ----- -----
 pjproject='2.14'
+opus='1.4'
 
 pkg=pjproject-${pjproject}.tar.gz # 9.8M
+pkg_opus=opus-$opus.tar.gz        # 1M
 # ----- ----- -----  ----- ----- -----
 
 # install latest gnu make
@@ -45,23 +47,28 @@ check_env() {
   fi  
 }
 
-# opus v1.4
+# opus 源码编译
+# 安装完成会在源码总目录产生 opus_demo, 没有额外bin目录
 install_opus() {
-  if [ ! -f 'opus-1.4.tar.gz' ]; then
-    wget --no-verbose --tries=1	-O 'opus.tar.gz' \
-      https://downloads.xiph.org/releases/opus/opus-1.4.tar.gz # 1.1M
-  else
-    echo "pkg opus-1.4 have downloaded!"
+  local url=https://downloads.xiph.org/releases/opus/$pkg_opus
+
+  # 不能在终端直接使用 opus_demo 命令, 因为没有自动装到 /xxx/bin
+  local c=`sudo find /usr/local -name opus_demo | wc -l`
+  if [ $c -gt 0 ]; then return 0; fi
+
+  if [ ! -f /opt/$pkg_opus ]; then
+    sudo wget --directory-prefix='/opt' --no-verbose $url
   fi
 
-  tar -xzf opus.tar.gz
-  cd opus-1.4
+  sudo rm -rf /usr/local/src/opus-$opus
+  sudo tar -xzf /opt/$pkg_opus -C /usr/local/src
+
+  cd /usr/local/src/opus-$opus
   # 生成的两个目录 include 和 lib 直接和 /usr/local 下的合并
   # 如果单独存放到其他地方，需要额外设置环境变量
   ./configure --prefix=/usr/local/
   make
   sudo make install
-  cd ..
 }
 
 # get pkg of pjsip
@@ -81,20 +88,21 @@ build_pj() {
 
   sudo ./configure --prefix=/usr/local/etc/pjsip
 
-  make dep
-  make
+  local op=0
+  read -p "start make? [Y/n] " op
+  case $op in
+    Y | y | 1) sudo make dep
+      sudo make;;
+    *) return 0
+  esac
+
   sudo make install
 }
 
 # ----- ----- main ----- -----
 check_env
 
-op=0
-read -p "add additional lib opus? [Y/n] " op
-case $op in
-  Y | y | 1) install_opus;;
-  *)
-esac 
+install_opus # must
 
 download_pj
 
