@@ -2,6 +2,23 @@
 
 set -u
 
+# ----- ----- version ----- -----
+qtcreator="12.0.2"
+# ----- ----- --- --- ----- -----
+
+# download run file to /opt
+download_run() {
+  local pkg=qt-creator-opensource-linux-x86_64-$qtcreator.run # 200M
+  local verM=${qtcreator%.*} # 12.0
+  local url=https://download.qt.io/official_releases/qtcreator/$verM/$qtcreator/$pkg
+
+  if [ ! -f /opt/$pkg ]; then
+    sudo wget --directory-prefix='/opt' --no-verbose $url
+  fi
+
+  sudo chmod +777 /opt/$pkg
+}
+
 # run .run need
 sudo apt install -y libxcb-xinerama0-dev
 # restart from lnk need
@@ -11,8 +28,6 @@ sudo apt install -y libglib2.0-bin
 # it can find env of cmake when compile 
 sudo apt install -y libgl-dev
 
-ver="12.0.1"
-
 addlogo2favorite() {
   local qtdesktop="org.qt-project.qtcreator.desktop"
   local likelist=`gsettings get org.gnome.shell favorite-apps`
@@ -21,16 +36,10 @@ addlogo2favorite() {
   gsettings set org.gnome.shell favorite-apps "$likelist"
 }
 
-pkgRun=qt-creator-opensource-linux-x86_64-$ver.run # 200M
-if [ ! -f $pkgRun ]; then
-  wget --no-verbose \
-    https://download.qt.io/official_releases/qtcreator/12.0/$ver/$pkgRun
-fi
-
-
-chmod +777 $pkgRun
+download_run
 
 # sudo will install in /opt
+cd /opt
 op=0
 read -p "qt will install in root? (default not)" op
 case $op in 
