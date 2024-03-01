@@ -11,6 +11,12 @@ set -u
 # Date: 2024.2.18
 # ----- ----- ----- ----- -----
 
+####################  version  control  ####################
+asterisk='21.1.0'
+
+go='1.22.0'
+############################################################
+
 # install mariadb connector
 install_connector() {
   if [[ $1 != "mariadb" ]]; then return 0
@@ -243,25 +249,58 @@ generate_tables() {
   alembic -c ./config.ini upgrade head
 }
 
+tip() {
+  echo "need any option:"
+  echo -e "\t [1] --add-asterisk \n\t [2] --add-go"
+  echo -e "\t [3] --no-table     \n\t [4] --no-checkenv"
+  exit 
+}
+
 # ----- ----- main ----- -----
+check_need=1
+table_need=1
+asterisk_need=0
+go_need=0
 
-check_env
-check_env_db
+args=("$@")
+# length must exist
+if [ ${#args[@]} -eq 0 ]; then tip
+fi
 
-sudo asterisk -V
-if [ $? -ne 127 ]; then
+for op in "${args[@]}"
+do
+    case $op in 
+      --1 | --add-asterisk) asterisk_need=1 ;;
+      --2 | --add-go)       go_need=1    ;;
+      --3 | --no-table)     table_need=0 ;;
+      --4 | --no-checkenv)  check_need=0 ;;
+      *) tip
+    esac
+done 
 
-  install_go "go1.22.0"
+if [ $check_need -eq 1 ]; then
+  check_env
+  check_env_db
+fi
+
+if [ $go_need -eq 1 ]; then install_go "go$go"
+
   go env -w GOPRIVATE=https://go.pfgit.cn
   go env -w GOPROXY=https://proxy.golang.com.cn,direct
   go env -w GO111MODULE=on
   go env -w GOSUMDB=off
-
   exit
 fi
 
-download_asterisk "20.6.0"
-build_asterisk
+if [ $asterisk_need -eq 1 ]; then
+  sudo asterisk -V
+  if [ $? -eq 127 ]; then
+    download_asterisk $asterisk
+    build_asterisk
+  fi
+
+  sudo chmod 777 /etc/asterisk/extensions.conf
+fi
 
 id asterisk
 if [ $? -eq 1 ]; then
@@ -273,6 +312,8 @@ sudo sed -i '9s/.*/AST_GROUP="asterisk"/' /etc/default/asterisk
 sudo sed -i '75s/.*/runuser = asterisk/' /etc/asterisk/asterisk.conf 
 sudo sed -i '76s/.*/rungroup = asterisk/' /etc/asterisk/asterisk.conf
 
+if [ $table_need -eq 0 ]; then exit
+fi
 # create tables in db
 generate_tables
 
