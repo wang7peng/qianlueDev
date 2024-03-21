@@ -9,6 +9,12 @@ set -u
 #  Note: root运行
 # ----- ----- ----- ----- ----- -----
 
+####################  version  control  ####################
+git='2.44.0'
+go='1.22.1'
+python='3.12.2'
+############################################################
+
 replace_gcc() {
   local infoGCC=$(gcc --version | head --lines=1 | awk '{print $3}')
   local verMax=${infoGCC%%.*}
@@ -42,14 +48,13 @@ install_git() {
   git -v 2> /dev/null
   if [ $? -ne 127 ]; then return 0; fi
 
-  cd /opt
-  local pkgName=git-2.43.0.tar.gz
-  if [ ! -f $pkgName ]; then wget --no-verbose \
-    https://mirrors.edge.kernel.org/pub/software/scm/git/$pkgName
-  fi
+  local pkg=git-${git}.tar.gz
+  local url=https://mirrors.edge.kernel.org/pub/software/scm/git/$pkg
+  sudo wget --no-verbose --directory-prefix='/opt' -nc $url
+
   # 安装 openssl 时会顺带自动安装 zlib-devel 等其他依赖库
   yum -y install curl-devel expat-devel openssl-devel 
-  tar -C /usr/local/src -zxvf git-2.4*
+  sudo tar -C /usr/local/src -zxf /opt/git-2.4*
   cd /usr/local/src/git-2.4*
   make
   make install 
@@ -89,7 +94,7 @@ install_python() {
     fi
   fi
 
-  local ver="3.12.1"
+  local ver=$python
   local pkgName=Python-$ver.tar.xz
   if [ ! -f /opt/$pkgName ]; then sudo wget --no-verbose -P /opt \
     https://www.python.org/ftp/python/${ver}/$pkgName
@@ -103,6 +108,24 @@ install_python() {
   make 
   sudo make install
   cd $pos
+}
+
+# same: echo 'export PATH=$PATH:/usr/local/etc/go/bin' >> /etc/profile
+function addenv2path {
+  local confFile='/etc/profile.d/wangpeng.sh'
+  if [ ! -f $confFile ]; then sudo touch $confFile
+  fi
+  
+  if [ $(grep 'go/bin' $confFile | wc -l) -eq 0 ]; then
+    echo "export PATH=\$PATH:$1" | sudo tee -a $confFile
+  fi
+  echo $PATH | tr ':' '\n'
+
+  if [ $(echo $PATH | tr ':' '\n' | grep 'go/bin' | wc -l) -eq 0 ]; then
+    # source /etc/profile
+    echo "remember source /etc/profile, then run this script again!"
+    exit 
+  fi
 }
 
 # install or update go (v1.21+)
@@ -121,13 +144,8 @@ install_go() {
   fi
   sudo rm -rf /usr/local/etc/go
   sudo tar -C /usr/local/etc -xzf /opt/$pkgName
-  
-  cat /etc/profile | grep -i go/bin
-  if [ $? -eq 1 ]; then
-    echo 'export PATH=$PATH:/usr/local/etc/go/bin' >> /etc/profile
-  fi
-  echo "remember source /etc/profile, then run this script again!"
-  exit
+
+  addenv2path "/usr/local/etc/go/bin"
 }
 
 # ----- ----- main ----- -----
@@ -146,7 +164,7 @@ git config --global core.autocrlf input
 
 install_python
 
-install_go "go1.21.6"
+install_go "go$go"
 
 go env -w GOPRIVATE=https://go.pfgit.cn
 go env -w GOPROXY=https://proxy.golang.com.cn,direct
