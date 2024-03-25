@@ -3,8 +3,8 @@ set -u
 
 # Date: 2024.2.13
 # ----- ----- version conf ----- -----
-asterisk='21.1.0'
-pjproject='2.13.1'
+asterisk='21.2.0'
+pjproject='2.14'
 
 dahdi='3.3.0'
 libpri='1.6.1'
@@ -226,7 +226,7 @@ function download_pjproject {
 build_asterisk() {
   # configure need pjproject package in /tmp
   download_pjproject $pjproject
-  
+ 
   cd /usr/local/src/asterisk-$asterisk
   # default prefix=/usr/local
   sudo ./configure
@@ -255,7 +255,7 @@ build_asterisk() {
 
 # ----- -----  main point ----- -----
 sudo asterisk -V
-if [ $? -eq 127 ]; then exit
+if [ $? -ne 127 ]; then exit
 fi
 
 system_requirement
